@@ -33,7 +33,13 @@
         <p class="detail-status" id="detail-status"></p>
         <button class="update-graph-button" id="update-graph-button" type="button" hidden>Update graph</button>
         <div class="graph-visual" id="graph-visual" aria-label="Knowledge graph"></div>
-        <pre class="graph-json" id="graph-json">{}</pre>
+        <section class="chat-panel" aria-label="Graph chat">
+          <div class="chat-messages" id="chat-messages"></div>
+          <form class="chat-form" id="chat-form">
+            <input class="chat-input" id="chat-input" type="text" placeholder="Ask about this page" autocomplete="off">
+            <button class="chat-send" type="submit">Send</button>
+          </form>
+        </section>
       </section>
     </main>
 

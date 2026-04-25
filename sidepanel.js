@@ -1,6 +1,7 @@
 const GRAPH_STORAGE_KEY = "graphs";
 const NAME_MODEL = "gpt-5.4-nano";
 const GRAPH_MODEL = "gpt-5.5";
+const CONVERSATION_MODEL = "gpt-5.5";
 const MAX_TEXT_LENGTH = 60000;
 
 const homeView = document.querySelector("#home-view");
@@ -14,10 +15,13 @@ const detailTitle = document.querySelector("#detail-title");
 const detailStatus = document.querySelector("#detail-status");
 const updateGraphButton = document.querySelector("#update-graph-button");
 const graphVisual = document.querySelector("#graph-visual");
-const graphJson = document.querySelector("#graph-json");
+const chatMessages = document.querySelector("#chat-messages");
+const chatForm = document.querySelector("#chat-form");
+const chatInput = document.querySelector("#chat-input");
 
 let graphs = [];
 let graphView = null;
+const conversations = {};
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const timeUnits = [
@@ -106,6 +110,41 @@ async function loadGraphs() {
   render();
 }
 
+async function loadConversation(graphId) {
+  if (conversations[graphId]) {
+    return conversations[graphId];
+  }
+
+  const key = getConversationKey(graphId);
+  const localMessages = parseJson(localStorage.getItem(key), []);
+  const chromeItems =
+    typeof chrome !== "undefined" && chrome.storage?.local
+      ? await chrome.storage.local.get(key)
+      : {};
+  const messages = Array.isArray(chromeItems[key])
+    ? chromeItems[key]
+    : Array.isArray(localMessages)
+      ? localMessages
+      : [];
+
+  conversations[graphId] = messages;
+  return messages;
+}
+
+async function saveConversation(graphId) {
+  const key = getConversationKey(graphId);
+  const messages = conversations[graphId] ?? [];
+  localStorage.setItem(key, JSON.stringify(messages));
+
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    await chrome.storage.local.set({ [key]: messages });
+  }
+}
+
+function getConversationKey(graphId) {
+  return `${graphId}_conversation`;
+}
+
 async function saveGraphs() {
   graphs = dedupe(graphs).sort((a, b) => b.last_modified - a.last_modified);
   localStorage.setItem(GRAPH_STORAGE_KEY, JSON.stringify(graphs));
@@ -179,8 +218,8 @@ function renderRoute() {
   detailStatus.textContent = graph
     ? Object.keys(graph.graph.nodes).length ? "Generated" : "Generating..."
     : "";
-  graphJson.textContent = graph ? JSON.stringify(graph, null, 2) : "{}";
   renderGraphVisual(graph?.graph.nodes ?? {});
+  renderChat(id);
   updateUpdateButtonVisibility(graph);
 }
 
@@ -230,6 +269,19 @@ async function handleNodeClick(node) {
   }
 
   await highlightQuoteInTab(tab.id, node.quote);
+}
+
+async function goToQuote(url, quote) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab?.id || normalizeUrl(tab.url) !== normalizeUrl(url)) {
+    const targetTab = await openOrFocusTab(url);
+    await waitForTabLoad(targetTab.id);
+    await highlightQuoteInTab(targetTab.id, quote);
+    return;
+  }
+
+  await highlightQuoteInTab(tab.id, quote);
 }
 
 async function highlightQuoteInTab(tabId, quote) {
@@ -372,6 +424,148 @@ async function updateCurrentGraph() {
     updateGraphButton.textContent = "Update graph";
     updateUpdateButtonVisibility(graph);
   }
+}
+
+async function renderChat(graphId) {
+  const messages = graphId ? await loadConversation(graphId) : [];
+
+  chatMessages.replaceChildren(
+    ...messages.map((message) => {
+      const item = document.createElement("div");
+      item.className = `chat-message ${message.role}`;
+      renderChatMessageContent(item, message.content);
+      return item;
+    }),
+  );
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function renderChatMessageContent(container, content) {
+  const lines = content.split(/\n+/);
+  let list = null;
+
+  lines.forEach((line) => {
+    const bulletMatch = line.match(/^\s*[-*]\s+(.+)$/);
+
+    if (bulletMatch) {
+      if (!list) {
+        list = document.createElement("ul");
+        container.append(list);
+      }
+
+      const item = document.createElement("li");
+      renderInlineContent(item, bulletMatch[1]);
+      list.append(item);
+      return;
+    }
+
+    list = null;
+
+    if (!line.trim()) {
+      container.append(document.createElement("br"));
+      return;
+    }
+
+    const paragraph = document.createElement("p");
+    renderInlineContent(paragraph, line);
+    container.append(paragraph);
+  });
+}
+
+function renderInlineContent(container, content) {
+  const linkPattern = /\[([^\]]+)\]\(([^)]+)\)\(([^)]+)\)/g;
+  let index = 0;
+  let match = linkPattern.exec(content);
+
+  while (match) {
+    container.append(document.createTextNode(content.slice(index, match.index)));
+
+    const quote = match[2];
+    const url = match[3];
+    const link = document.createElement("button");
+    link.className = "quote-link";
+    link.type = "button";
+    link.textContent = match[1];
+    link.addEventListener("click", () => goToQuote(url, quote));
+    container.append(link);
+
+    index = linkPattern.lastIndex;
+    match = linkPattern.exec(content);
+  }
+
+  container.append(document.createTextNode(content.slice(index)));
+  formatInlineMarkdown(container);
+}
+
+function formatInlineMarkdown(container) {
+  container.childNodes.forEach((node) => {
+    if (node.nodeType !== Node.TEXT_NODE) {
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const pattern = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+    let index = 0;
+    let match = pattern.exec(node.textContent);
+
+    while (match) {
+      fragment.append(document.createTextNode(node.textContent.slice(index, match.index)));
+
+      const element = document.createElement(match[2] ? "strong" : "em");
+      element.textContent = match[2] ?? match[3];
+      fragment.append(element);
+
+      index = pattern.lastIndex;
+      match = pattern.exec(node.textContent);
+    }
+
+    fragment.append(document.createTextNode(node.textContent.slice(index)));
+    node.replaceWith(fragment);
+  });
+}
+
+async function sendChatMessage(event) {
+  event.preventDefault();
+
+  const graph = getCurrentGraph();
+  const content = chatInput.value.trim();
+
+  if (!graph || !content) {
+    return;
+  }
+
+  chatInput.value = "";
+  chatInput.disabled = true;
+  chatForm.querySelector("button").disabled = true;
+  conversations[graph.id] = [...(conversations[graph.id] ?? []), { role: "user", content }];
+  await saveConversation(graph.id);
+  await renderChat(graph.id);
+
+  try {
+    const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
+    const response = await generateChatResponse(apiKey, page.text, graph, conversations[graph.id]);
+    conversations[graph.id].push({
+      role: "assistant",
+      content: addUrlToQuoteLinks(response, page.url),
+    });
+    await saveConversation(graph.id);
+    await renderChat(graph.id);
+  } catch (error) {
+    conversations[graph.id].push({ role: "assistant", content: error.message });
+    await saveConversation(graph.id);
+    await renderChat(graph.id);
+  } finally {
+    chatInput.disabled = false;
+    chatForm.querySelector("button").disabled = false;
+    chatInput.focus();
+  }
+}
+
+function addUrlToQuoteLinks(content, url) {
+  return content.replace(
+    /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
+    (_match, text, quote) => `[${text}](${quote})(${url})`,
+  );
 }
 
 async function loadApiKey() {
@@ -555,6 +749,28 @@ async function generateUpdatedKnowledgeGraph(apiKey, pageText, graph) {
   return parseResponseJson(data);
 }
 
+async function generateChatResponse(apiKey, pageText, graph, messages) {
+  const systemPrompt = await loadPrompt("prompts/conversation_system.txt");
+  const recentMessages = messages.slice(-5);
+  const data = await createResponse(apiKey, {
+    model: CONVERSATION_MODEL,
+    input: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content:
+          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${pageText}`,
+      },
+      ...recentMessages,
+    ],
+  });
+
+  return getResponseText(data);
+}
+
 async function createResponse(apiKey, body) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -573,17 +789,22 @@ async function createResponse(apiKey, body) {
 }
 
 function parseResponseJson(response) {
-  const outputText =
-    response.output_text ??
-    response.output
-      ?.flatMap((item) => item.content ?? [])
-      .find((content) => content.type === "output_text")?.text;
+  const outputText = getResponseText(response);
 
   if (!outputText) {
     throw new Error("OpenAI response did not include text output");
   }
 
   return JSON.parse(outputText);
+}
+
+function getResponseText(response) {
+  return (
+    response.output_text ??
+    response.output
+      ?.flatMap((item) => item.content ?? [])
+      .find((content) => content.type === "output_text")?.text
+  );
 }
 
 function buildStoredGraph(generatedGraph, url, existingNodes = {}) {
@@ -615,6 +836,7 @@ function buildStoredGraph(generatedGraph, url, existingNodes = {}) {
 
 newGraphButton.addEventListener("click", createNewGraph);
 updateGraphButton.addEventListener("click", updateCurrentGraph);
+chatForm.addEventListener("submit", sendChatMessage);
 backButton.addEventListener("click", showHome);
 window.addEventListener("hashchange", renderRoute);
 chrome.tabs.onActivated.addListener(refreshUpdateButtonVisibility);
