@@ -172,6 +172,14 @@ h2 {
   font-size: 0.88rem;
 }
 
+.graph-visual {
+  height: 280px;
+  border: 1px solid rgba(82, 105, 91, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+}
+
 .graph-json {
   overflow: auto;
   min-height: 220px;

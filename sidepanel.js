@@ -1,7 +1,7 @@
 const GRAPH_STORAGE_KEY = "graphs";
 const NAME_MODEL = "gpt-5.4-nano";
 const GRAPH_MODEL = "gpt-5.5";
-const MAX_DOM_LENGTH = 100000;
+const MAX_TEXT_LENGTH = 60000;
 
 const homeView = document.querySelector("#home-view");
 const detailView = document.querySelector("#detail-view");
@@ -12,9 +12,11 @@ const emptyState = document.querySelector("#empty-state");
 const graphCount = document.querySelector("#graph-count");
 const detailTitle = document.querySelector("#detail-title");
 const detailStatus = document.querySelector("#detail-status");
+const graphVisual = document.querySelector("#graph-visual");
 const graphJson = document.querySelector("#graph-json");
 
 let graphs = [];
+let graphView = null;
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const timeUnits = [
@@ -51,69 +53,14 @@ function normalizeGraph(graph) {
     return null;
   }
 
-  if (Array.isArray(graph.graph.nodes) && Array.isArray(graph.graph.edges)) {
-    return normalizeEdgeListGraph(graph);
-  }
-
   return {
     id: graph.id,
     name: graph.name,
     last_modified: graph.last_modified ?? Date.now(),
     graph: {
-      nodes: normalizeNodeMap(graph.graph.nodes ?? {}),
+      nodes: cleanOutgoing(graph.graph.nodes ?? {}),
     },
   };
-}
-
-function normalizeEdgeListGraph(graph) {
-  const nodes = Object.fromEntries(
-    graph.graph.nodes.map((node) => [
-      node.name,
-      {
-        selector: node.selector ?? "",
-        outgoing: [],
-      },
-    ]),
-  );
-
-  graph.graph.edges.forEach((edge) => {
-    if (nodes[edge.from] && nodes[edge.to]) {
-      nodes[edge.from].outgoing.push(edge.to);
-    }
-  });
-
-  return {
-    id: graph.id,
-    name: graph.name,
-    last_modified: graph.last_modified ?? Date.now(),
-    graph: { nodes: cleanOutgoing(nodes) },
-  };
-}
-
-function normalizeNodeMap(nodes) {
-  const normalized = Object.fromEntries(
-    Object.entries(nodes).flatMap(([key, node]) => {
-      const name = String(node.name ?? key).trim();
-
-      if (!name) {
-        return [];
-      }
-
-      return [
-        [
-          name,
-          {
-            selector: String(node.selector ?? "").trim(),
-            outgoing: Array.isArray(node.outgoing)
-              ? node.outgoing.map((target) => String(target).trim()).filter(Boolean)
-              : [],
-          },
-        ],
-      ];
-    }),
-  );
-
-  return cleanOutgoing(normalized);
 }
 
 function cleanOutgoing(nodes) {
@@ -215,6 +162,51 @@ function renderRoute() {
     ? Object.keys(graph.graph.nodes).length ? "Generated" : "Generating..."
     : "";
   graphJson.textContent = graph ? JSON.stringify(graph, null, 2) : "{}";
+  renderGraphVisual(graph?.graph.nodes ?? {});
+}
+
+function renderGraphVisual(nodes) {
+  if (graphView) {
+    graphView.destroy();
+  }
+
+  graphVisual.replaceChildren();
+  graphView = createGraph(graphVisual, nodes, highlightQuote);
+}
+
+async function highlightQuote(quote) {
+  if (!quote) {
+    return;
+  }
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab?.id) {
+    return;
+  }
+
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    args: [quote],
+    func: (targetQuote) => {
+      const selection = getSelection();
+      selection.removeAllRanges();
+
+      if (!window.find(targetQuote)) {
+        return;
+      }
+
+      const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+      const rect = range?.getBoundingClientRect();
+
+      if (rect) {
+        window.scrollTo({
+          top: rect.top + window.scrollY - window.innerHeight / 2 + rect.height / 2,
+          behavior: "smooth",
+        });
+      }
+    },
+  });
 }
 
 async function createNewGraph() {
@@ -233,13 +225,13 @@ async function createNewGraph() {
   showGraph(graph.id);
 
   try {
-    const [apiKey, pageDom] = await Promise.all([loadApiKey(), getPageDom()]);
+    const [apiKey, pageText] = await Promise.all([loadApiKey(), getVisiblePageText()]);
 
-    graph.name = await generateGraphName(apiKey, pageDom);
+    graph.name = await generateGraphName(apiKey, pageText);
     graph.last_modified = Date.now();
     await saveGraphs();
 
-    graph.graph = buildStoredGraph(await generateKnowledgeGraph(apiKey, pageDom));
+    graph.graph = buildStoredGraph(await generateKnowledgeGraph(apiKey, pageText));
     graph.last_modified = Date.now();
     await saveGraphs();
   } catch (error) {
@@ -261,7 +253,17 @@ async function loadApiKey() {
   return config.OPENAI_API_KEY;
 }
 
-async function getPageDom() {
+async function loadPrompt(path) {
+  const response = await fetch(chrome.runtime.getURL(path));
+
+  if (!response.ok) {
+    throw new Error(`Missing prompt file: ${path}`);
+  }
+
+  return response.text();
+}
+
+async function getVisiblePageText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!tab?.id) {
@@ -270,82 +272,31 @@ async function getPageDom() {
 
   const [result] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    func: () => {
-      const selectorAttribute = "data-mindleaf-selector";
-      const elements = [...document.documentElement.querySelectorAll("*")];
-
-      function escapeSelectorPart(value) {
-        return window.CSS?.escape
-          ? CSS.escape(value)
-          : value.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
-      }
-
-      function getSelector(element) {
-        if (element.id) {
-          return `#${escapeSelectorPart(element.id)}`;
-        }
-
-        const parts = [];
-        let current = element;
-
-        while (current && current !== document.documentElement) {
-          const siblings = [...current.parentElement.children].filter(
-            (sibling) => sibling.tagName === current.tagName,
-          );
-          parts.unshift(`${current.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(current) + 1})`);
-          current = current.parentElement;
-        }
-
-        return parts.join(" > ");
-      }
-
-      try {
-        elements.forEach((element) => {
-          element.setAttribute(selectorAttribute, getSelector(element));
-        });
-
-        const clone = document.documentElement.cloneNode(true);
-        clone.querySelectorAll("script, style, noscript, template").forEach((element) => element.remove());
-        clone.querySelectorAll("*").forEach((element) => {
-          [...element.attributes].forEach((attribute) => {
-            if (
-              attribute.name.startsWith("on") ||
-              attribute.name === "srcset" ||
-              attribute.name === "style"
-            ) {
-              element.removeAttribute(attribute.name);
-            }
-          });
-        });
-
-        return clone.outerHTML.replace(/\s+/g, " ").trim();
-      } finally {
-        elements.forEach((element) => element.removeAttribute(selectorAttribute));
-      }
-    },
+    func: () => document.body?.innerText?.replace(/\s+/g, " ").trim() ?? "",
   });
 
-  const dom = String(result?.result ?? "").slice(0, MAX_DOM_LENGTH);
+  const text = String(result?.result ?? "").slice(0, MAX_TEXT_LENGTH);
 
-  if (!dom) {
-    throw new Error("No DOM found on the current page");
+  if (!text) {
+    throw new Error("No visible text found on the current page");
   }
 
-  return dom;
+  return text;
 }
 
-async function generateGraphName(apiKey, pageDom) {
+async function generateGraphName(apiKey, pageText) {
+  const systemPrompt = await loadPrompt("prompts/graph_name_system.txt");
+
   const data = await createResponse(apiKey, {
     model: NAME_MODEL,
     input: [
       {
         role: "system",
-        content:
-          "Create a concise title for a knowledge graph generated from a webpage DOM snapshot. Return JSON only.",
+        content: systemPrompt,
       },
       {
         role: "user",
-        content: `Webpage DOM snapshot:\n${pageDom}\n\nReturn a short specific title, 3 to 7 words.`,
+        content: `Visible webpage text:\n${pageText}`,
       },
     ],
     text: {
@@ -368,20 +319,19 @@ async function generateGraphName(apiKey, pageDom) {
   return parseResponseJson(data).name;
 }
 
-async function generateKnowledgeGraph(apiKey, pageDom) {
+async function generateKnowledgeGraph(apiKey, pageText) {
+  const systemPrompt = await loadPrompt("prompts/knowledge_graph_system.txt");
+
   const data = await createResponse(apiKey, {
     model: GRAPH_MODEL,
-    reasoning: { effort: "high" },
     input: [
       {
         role: "system",
-        content:
-          "Extract a compact knowledge graph from a webpage DOM snapshot. Use only facts stated in visible page content. Return JSON only.",
+        content: systemPrompt,
       },
       {
         role: "user",
-        content:
-          `Webpage DOM snapshot:\n${pageDom}\n\nEach element includes data-mindleaf-selector with a CSS selector for the original page. Return nodes as an array. Node names must be unique. Do not create node IDs. The selector must be the data-mindleaf-selector value for the element where the node's supporting text appears. Outgoing contains related target node names only. Do not include explanations.`,
+        content: `Visible webpage text:\n${pageText}`,
       },
     ],
     text: {
@@ -400,13 +350,13 @@ async function generateKnowledgeGraph(apiKey, pageDom) {
                 additionalProperties: false,
                 properties: {
                   name: { type: "string" },
-                  selector: { type: "string" },
+                  quote: { type: "string" },
                   outgoing: {
                     type: "array",
                     items: { type: "string" },
                   },
                 },
-                required: ["name", "selector", "outgoing"],
+                required: ["name", "quote", "outgoing"],
               },
             },
           },
@@ -463,7 +413,7 @@ function buildStoredGraph(generatedGraph) {
         [
           name,
           {
-            selector: String(node.selector ?? "").trim(),
+            quote: String(node.quote ?? "").trim(),
             outgoing: Array.isArray(node.outgoing)
               ? node.outgoing.map((target) => String(target).trim()).filter(Boolean)
               : [],

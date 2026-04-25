@@ -31,10 +31,13 @@
         <button class="back-button" id="back-button" type="button">Back</button>
         <h2 class="detail-title" id="detail-title">Generating graph...</h2>
         <p class="detail-status" id="detail-status"></p>
+        <div class="graph-visual" id="graph-visual" aria-label="Knowledge graph"></div>
         <pre class="graph-json" id="graph-json">{}</pre>
       </section>
     </main>
 
+    <script src="vendor/cytoscape.min.js"></script>
+    <script src="graph.js"></script>
     <script src="sidepanel.js"></script>
   </body>
 </html>
