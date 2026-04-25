@@ -197,6 +197,21 @@ async function highlightQuote(quote) {
       }
 
       const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+      const endContainer = range?.endContainer;
+
+      if (endContainer?.nodeType === Node.TEXT_NODE) {
+        const remainingText = endContainer.nodeValue.slice(range.endOffset);
+        const periodIndex = remainingText.indexOf(".");
+        range.setEnd(
+          endContainer,
+          periodIndex >= 0
+            ? range.endOffset + periodIndex + 1
+            : endContainer.nodeValue.length,
+        );
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
       const rect = range?.getBoundingClientRect();
 
       if (rect) {

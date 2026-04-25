@@ -1,9 +1,10 @@
 function createGraph(container, nodes, onNodeClick) {
+  const nodeEntries = Object.entries(nodes).sort(([a], [b]) => a.localeCompare(b));
   const maxOutgoing = Math.max(
     1,
-    ...Object.values(nodes).map((node) => node.outgoing.length),
+    ...nodeEntries.map(([, node]) => node.outgoing.length),
   );
-  const elements = Object.entries(nodes).flatMap(([name, node]) => [
+  const elements = nodeEntries.flatMap(([name, node], index) => [
     {
       data: {
         id: name,
@@ -11,6 +12,7 @@ function createGraph(container, nodes, onNodeClick) {
         quote: node.quote,
         size: 34 + (node.outgoing.length / maxOutgoing) * 34,
       },
+      position: getInitialPosition(index, nodeEntries.length),
     },
     ...node.outgoing.map((target) => ({
       data: {
@@ -55,6 +57,7 @@ function createGraph(container, nodes, onNodeClick) {
       name: "cose",
       padding: 24,
       animate: false,
+      randomize: false,
       nodeRepulsion: 7000,
       idealEdgeLength: 84,
       edgeElasticity: 120,
@@ -66,4 +69,14 @@ function createGraph(container, nodes, onNodeClick) {
   });
 
   return cy;
+}
+
+function getInitialPosition(index, total) {
+  const angle = (index / Math.max(1, total)) * Math.PI * 2;
+  const radius = 120;
+
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius,
+  };
 }
