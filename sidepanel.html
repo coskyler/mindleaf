@@ -12,17 +12,26 @@
         <h1>Mindleaf</h1>
       </header>
 
-      <button class="new-graph-button" type="button">New graph</button>
+      <section class="home-view" id="home-view">
+        <button class="new-graph-button" id="new-graph-button" type="button">New graph</button>
 
-      <section class="graphs-section" aria-labelledby="graphs-title">
-        <div class="section-heading">
-          <h2 id="graphs-title">My graphs</h2>
-          <span class="graph-count" id="graph-count">0</span>
-        </div>
+        <section class="graphs-section" aria-labelledby="graphs-title">
+          <div class="section-heading">
+            <h2 id="graphs-title">My graphs</h2>
+            <span class="graph-count" id="graph-count">0</span>
+          </div>
 
-        <ul class="graph-list" id="graph-list"></ul>
+          <ul class="graph-list" id="graph-list"></ul>
 
-        <p class="empty-state" id="empty-state">No graphs yet.</p>
+          <p class="empty-state" id="empty-state">No graphs yet.</p>
+        </section>
+      </section>
+
+      <section class="detail-view" id="detail-view" hidden>
+        <button class="back-button" id="back-button" type="button">Back</button>
+        <h2 class="detail-title" id="detail-title">Generating graph...</h2>
+        <p class="detail-status" id="detail-status"></p>
+        <pre class="graph-json" id="graph-json">{}</pre>
       </section>
     </main>
 

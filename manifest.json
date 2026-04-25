@@ -3,7 +3,8 @@
   "name": "Mindleaf Side Panel",
   "description": "Minimal Chrome extension blueprint using the Side Panel API.",
   "version": "0.1.0",
-  "permissions": ["sidePanel", "storage"],
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Open Mindleaf"
   },

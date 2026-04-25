@@ -45,6 +45,11 @@ h1 {
   font-weight: 700;
 }
 
+.new-graph-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .new-graph-button:focus-visible {
   outline: 3px solid rgba(69, 127, 86, 0.28);
   outline-offset: 3px;
@@ -95,10 +100,24 @@ h2 {
 }
 
 .graph-card {
+  width: 100%;
   border: 1px solid rgba(82, 105, 91, 0.1);
   border-radius: 18px;
   padding: 13px 14px;
   background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.graph-card:hover {
+  border-color: rgba(82, 126, 88, 0.24);
+  box-shadow: 0 12px 24px rgba(52, 74, 60, 0.08);
+  transform: translateY(-1px);
 }
 
 .graph-name {
@@ -118,4 +137,51 @@ h2 {
   margin: 8px 0 2px;
   color: #708073;
   font-size: 0.9rem;
+}
+
+.detail-view {
+  display: grid;
+  gap: 14px;
+}
+
+.detail-view[hidden],
+.home-view[hidden] {
+  display: none;
+}
+
+.back-button {
+  justify-self: start;
+  border: 1px solid rgba(82, 105, 91, 0.14);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #496354;
+  background: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.detail-title {
+  font-size: 1.18rem;
+}
+
+.detail-status {
+  margin: 0;
+  color: #708073;
+  font-size: 0.88rem;
+}
+
+.graph-json {
+  overflow: auto;
+  min-height: 220px;
+  max-height: calc(100vh - 170px);
+  margin: 0;
+  border: 1px solid rgba(82, 105, 91, 0.12);
+  border-radius: 18px;
+  padding: 14px;
+  color: #1f3328;
+  background: rgba(255, 255, 255, 0.72);
+  font: 0.78rem/1.5 "Cascadia Code", Consolas, monospace;
+  white-space: pre-wrap;
 }
