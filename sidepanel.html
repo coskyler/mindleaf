@@ -7,8 +7,25 @@
     <link rel="stylesheet" href="sidepanel.css">
   </head>
   <body>
-    <main class="panel">
-      <h1>Mindleaf</h1>
+    <main class="shell">
+      <header class="header">
+        <h1>Mindleaf</h1>
+      </header>
+
+      <button class="new-graph-button" type="button">New graph</button>
+
+      <section class="graphs-section" aria-labelledby="graphs-title">
+        <div class="section-heading">
+          <h2 id="graphs-title">My graphs</h2>
+          <span class="graph-count" id="graph-count">0</span>
+        </div>
+
+        <ul class="graph-list" id="graph-list"></ul>
+
+        <p class="empty-state" id="empty-state">No graphs yet.</p>
+      </section>
     </main>
+
+    <script src="sidepanel.js"></script>
   </body>
 </html>

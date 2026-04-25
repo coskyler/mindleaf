@@ -1,24 +1,121 @@
 :root {
   color-scheme: light;
-  font-family: Georgia, "Times New Roman", serif;
-  color: #172018;
-  background: #f4f0e8;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  color: #203128;
+  background:
+    radial-gradient(circle at top left, rgba(158, 204, 154, 0.35), transparent 34rem),
+    linear-gradient(180deg, #f8faf4 0%, #eef4e9 100%);
 }
 
 body {
   margin: 0;
+  min-width: 320px;
 }
 
-.panel {
+.shell {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
   box-sizing: border-box;
+  padding: 18px;
+}
+
+.header {
+  margin-bottom: 18px;
 }
 
 h1 {
   margin: 0;
-  font-size: 2rem;
-  letter-spacing: 0.02em;
+  color: #52695b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.new-graph-button {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 15px 18px;
+  color: #f9fff8;
+  background: linear-gradient(135deg, #2f6e4f, #6ca66b);
+  box-shadow: 0 14px 32px rgba(52, 104, 71, 0.2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.new-graph-button:focus-visible {
+  outline: 3px solid rgba(69, 127, 86, 0.28);
+  outline-offset: 3px;
+}
+
+.graphs-section {
+  margin-top: 24px;
+  border: 1px solid rgba(86, 120, 92, 0.14);
+  border-radius: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 18px 42px rgba(52, 74, 60, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+h2 {
+  margin: 0;
+  color: #24382c;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.graph-count {
+  min-width: 24px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #44604c;
+  background: #e3efdd;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.graph-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-card {
+  border: 1px solid rgba(82, 105, 91, 0.1);
+  border-radius: 18px;
+  padding: 13px 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.graph-name {
+  margin: 0 0 5px;
+  color: #1f3328;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.graph-time {
+  margin: 0;
+  color: #708073;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  margin: 8px 0 2px;
+  color: #708073;
+  font-size: 0.9rem;
 }
