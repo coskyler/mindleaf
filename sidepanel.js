@@ -12,6 +12,7 @@ const emptyState = document.querySelector("#empty-state");
 const graphCount = document.querySelector("#graph-count");
 const detailTitle = document.querySelector("#detail-title");
 const detailStatus = document.querySelector("#detail-status");
+const updateGraphButton = document.querySelector("#update-graph-button");
 const graphVisual = document.querySelector("#graph-visual");
 const graphJson = document.querySelector("#graph-json");
 
@@ -68,6 +69,18 @@ function cleanOutgoing(nodes) {
     node.outgoing = [...new Set(node.outgoing)].filter((target) => nodes[target]);
   });
   return nodes;
+}
+
+function normalizeUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.hash = "";
+    parsedUrl.search = "";
+    parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, "") || "/";
+    return parsedUrl.toString().replace(/\/$/, "");
+  } catch {
+    return "";
+  }
 }
 
 function dedupe(graphList) {
@@ -146,9 +159,14 @@ function showGraph(id) {
   renderRoute();
 }
 
+function getCurrentGraph() {
+  const id = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+  return graphs.find((item) => item.id === id);
+}
+
 function renderRoute() {
   const id = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
-  const graph = graphs.find((item) => item.id === id);
+  const graph = getCurrentGraph();
 
   homeView.hidden = Boolean(id);
   detailView.hidden = !id;
@@ -163,6 +181,25 @@ function renderRoute() {
     : "";
   graphJson.textContent = graph ? JSON.stringify(graph, null, 2) : "{}";
   renderGraphVisual(graph?.graph.nodes ?? {});
+  updateUpdateButtonVisibility(graph);
+}
+
+function refreshUpdateButtonVisibility() {
+  updateUpdateButtonVisibility(getCurrentGraph());
+}
+
+async function updateUpdateButtonVisibility(graph) {
+  updateGraphButton.hidden = true;
+
+  if (!graph || !Object.keys(graph.graph.nodes).length) {
+    return;
+  }
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = normalizeUrl(tab?.url);
+  const nodeUrls = Object.values(graph.graph.nodes).map((node) => normalizeUrl(node.url));
+
+  updateGraphButton.hidden = !currentUrl || nodeUrls.includes(currentUrl);
 }
 
 function renderGraphVisual(nodes) {
@@ -171,11 +208,11 @@ function renderGraphVisual(nodes) {
   }
 
   graphVisual.replaceChildren();
-  graphView = createGraph(graphVisual, nodes, highlightQuote);
+  graphView = createGraph(graphVisual, nodes, handleNodeClick);
 }
 
-async function highlightQuote(quote) {
-  if (!quote) {
+async function handleNodeClick(node) {
+  if (!node.quote) {
     return;
   }
 
@@ -185,8 +222,23 @@ async function highlightQuote(quote) {
     return;
   }
 
+  if (node.url && normalizeUrl(tab.url) !== normalizeUrl(node.url)) {
+    const targetTab = await openOrFocusTab(node.url);
+    await waitForTabLoad(targetTab.id);
+    await highlightQuoteInTab(targetTab.id, node.quote);
+    return;
+  }
+
+  await highlightQuoteInTab(tab.id, node.quote);
+}
+
+async function highlightQuoteInTab(tabId, quote) {
+  if (!tabId) {
+    return;
+  }
+
   await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
+    target: { tabId },
     args: [quote],
     func: (targetQuote) => {
       const selection = getSelection();
@@ -224,6 +276,42 @@ async function highlightQuote(quote) {
   });
 }
 
+async function openOrFocusTab(url) {
+  const tabs = await chrome.tabs.query({});
+  const existingTab = tabs.find((tab) => normalizeUrl(tab.url) === normalizeUrl(url));
+
+  if (existingTab?.id) {
+    const updatedTab = await chrome.tabs.update(existingTab.id, { active: true });
+
+    if (existingTab.windowId) {
+      await chrome.windows.update(existingTab.windowId, { focused: true });
+    }
+
+    return updatedTab;
+  }
+
+  return chrome.tabs.create({ url });
+}
+
+async function waitForTabLoad(tabId) {
+  const tab = await chrome.tabs.get(tabId);
+
+  if (tab.status === "complete") {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    function listener(updatedTabId, changeInfo) {
+      if (updatedTabId === tabId && changeInfo.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+}
+
 async function createNewGraph() {
   newGraphButton.disabled = true;
   newGraphButton.textContent = "Generating...";
@@ -240,13 +328,16 @@ async function createNewGraph() {
   showGraph(graph.id);
 
   try {
-    const [apiKey, pageText] = await Promise.all([loadApiKey(), getVisiblePageText()]);
+    const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
 
-    graph.name = await generateGraphName(apiKey, pageText);
+    graph.name = await generateGraphName(apiKey, page.text);
     graph.last_modified = Date.now();
     await saveGraphs();
 
-    graph.graph = buildStoredGraph(await generateKnowledgeGraph(apiKey, pageText));
+    graph.graph = buildStoredGraph(
+      await generateKnowledgeGraph(apiKey, page.text),
+      page.url,
+    );
     graph.last_modified = Date.now();
     await saveGraphs();
   } catch (error) {
@@ -254,6 +345,32 @@ async function createNewGraph() {
   } finally {
     newGraphButton.disabled = false;
     newGraphButton.textContent = "New graph";
+  }
+}
+
+async function updateCurrentGraph() {
+  const graphId = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+  const graph = graphs.find((item) => item.id === graphId);
+
+  if (!graph) {
+    return;
+  }
+
+  updateGraphButton.disabled = true;
+  updateGraphButton.textContent = "Updating...";
+
+  try {
+    const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
+    const generatedGraph = await generateUpdatedKnowledgeGraph(apiKey, page.text, graph);
+    graph.graph = buildStoredGraph(generatedGraph, page.url, graph.graph.nodes);
+    graph.last_modified = Date.now();
+    await saveGraphs();
+  } catch (error) {
+    detailStatus.textContent = error.message;
+  } finally {
+    updateGraphButton.disabled = false;
+    updateGraphButton.textContent = "Update graph";
+    updateUpdateButtonVisibility(graph);
   }
 }
 
@@ -278,7 +395,7 @@ async function loadPrompt(path) {
   return response.text();
 }
 
-async function getVisiblePageText() {
+async function getVisiblePage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!tab?.id) {
@@ -296,7 +413,10 @@ async function getVisiblePageText() {
     throw new Error("No visible text found on the current page");
   }
 
-  return text;
+  return {
+    text,
+    url: normalizeUrl(tab.url),
+  };
 }
 
 async function generateGraphName(apiKey, pageText) {
@@ -384,6 +504,57 @@ async function generateKnowledgeGraph(apiKey, pageText) {
   return parseResponseJson(data);
 }
 
+async function generateUpdatedKnowledgeGraph(apiKey, pageText, graph) {
+  const systemPrompt = await loadPrompt("prompts/knowledge_graph_update_system copy.txt");
+
+  const data = await createResponse(apiKey, {
+    model: GRAPH_MODEL,
+    input: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content:
+          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${pageText}`,
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "knowledge_graph_adjacency_list",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            nodes: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  name: { type: "string" },
+                  quote: { type: "string" },
+                  outgoing: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["name", "quote", "outgoing"],
+              },
+            },
+          },
+          required: ["nodes"],
+        },
+      },
+    },
+  });
+
+  return parseResponseJson(data);
+}
+
 async function createResponse(apiKey, body) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -415,7 +586,7 @@ function parseResponseJson(response) {
   return JSON.parse(outputText);
 }
 
-function buildStoredGraph(generatedGraph) {
+function buildStoredGraph(generatedGraph, url, existingNodes = {}) {
   const nodes = Object.fromEntries(
     (generatedGraph.nodes ?? []).flatMap((node) => {
       const name = String(node.name ?? "").trim();
@@ -429,6 +600,7 @@ function buildStoredGraph(generatedGraph) {
           name,
           {
             quote: String(node.quote ?? "").trim(),
+            url: existingNodes[name]?.url ?? url,
             outgoing: Array.isArray(node.outgoing)
               ? node.outgoing.map((target) => String(target).trim()).filter(Boolean)
               : [],
@@ -442,7 +614,14 @@ function buildStoredGraph(generatedGraph) {
 }
 
 newGraphButton.addEventListener("click", createNewGraph);
+updateGraphButton.addEventListener("click", updateCurrentGraph);
 backButton.addEventListener("click", showHome);
 window.addEventListener("hashchange", renderRoute);
+chrome.tabs.onActivated.addListener(refreshUpdateButtonVisibility);
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  if (changeInfo.status === "complete" || changeInfo.url) {
+    refreshUpdateButtonVisibility();
+  }
+});
 
 loadGraphs();

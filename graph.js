@@ -10,6 +10,7 @@ function createGraph(container, nodes, onNodeClick) {
         id: name,
         label: name,
         quote: node.quote,
+        url: node.url,
         size: 34 + (node.outgoing.length / maxOutgoing) * 34,
       },
       position: getInitialPosition(index, nodeEntries.length),
@@ -65,7 +66,7 @@ function createGraph(container, nodes, onNodeClick) {
   });
 
   cy.on("tap", "node", (event) => {
-    onNodeClick(event.target.data("quote"));
+    onNodeClick(event.target.data());
   });
 
   return cy;

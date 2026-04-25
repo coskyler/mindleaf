@@ -55,6 +55,23 @@ h1 {
   outline-offset: 3px;
 }
 
+.update-graph-button {
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 14px;
+  color: #f9fff8;
+  background: #3d7a55;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.update-graph-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .graphs-section {
   margin-top: 24px;
   border: 1px solid rgba(86, 120, 92, 0.14);
