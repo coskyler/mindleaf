@@ -31,12 +31,13 @@
         <div class="detail-header">
           <button class="back-button" id="back-button" type="button">Back</button>
           <div class="detail-heading">
-            <h2 class="detail-title" id="detail-title">Generating graph...</h2>
-            <p class="detail-status" id="detail-status"></p>
+            <h2 class="detail-title" id="detail-title">Graph</h2>
           </div>
           <button class="update-graph-button" id="update-graph-button" type="button" hidden>Update graph</button>
         </div>
-        <div class="graph-visual" id="graph-visual" aria-label="Knowledge graph"></div>
+        <div class="graph-visual" id="graph-visual" aria-label="Knowledge graph">
+          <div class="graph-loading" id="graph-loading" hidden></div>
+        </div>
         <section class="chat-panel" aria-label="Graph chat">
           <div class="chat-messages" id="chat-messages"></div>
           <form class="chat-form" id="chat-form">

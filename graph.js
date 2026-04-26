@@ -11,7 +11,9 @@ function createGraph(container, nodes, onNodeClick) {
         label: name,
         quote: node.quote,
         url: node.url,
-        size: 34 + (node.outgoing.length / maxOutgoing) * 34,
+        width: Math.min(220, Math.max(96, name.length * 9 + 28 + (node.outgoing.length / maxOutgoing) * 48)),
+        height: 34 + Math.ceil(name.length / 18) * 18 + (node.outgoing.length / maxOutgoing) * 20,
+        fontSize: 16 + (node.outgoing.length / maxOutgoing) * 5,
       },
       position: getInitialPosition(index, nodeEntries.length),
     },
@@ -31,16 +33,20 @@ function createGraph(container, nodes, onNodeClick) {
       {
         selector: "node",
         style: {
-          "background-color": "#5f9560",
-          color: "#24382c",
-          width: "data(size)",
-          height: "data(size)",
+          shape: "round-rectangle",
+          "corner-radius": 14,
+          "background-color": "#f2ead2",
+          color: "#123321",
+          width: "data(width)",
+          height: "data(height)",
           label: "data(label)",
-          "font-size": 11,
+          "font-size": "data(fontSize)",
+          "font-weight": 600,
           "text-valign": "center",
           "text-halign": "center",
           "text-wrap": "wrap",
-          "text-max-width": 78,
+          "text-max-width": "data(width)",
+          padding: 1,
         },
       },
       {
@@ -59,9 +65,12 @@ function createGraph(container, nodes, onNodeClick) {
       padding: 24,
       animate: false,
       randomize: false,
-      nodeRepulsion: 7000,
-      idealEdgeLength: 84,
-      edgeElasticity: 120,
+      nodeDimensionsIncludeLabels: true,
+      nodeOverlap: 24,
+      nodeRepulsion: 14000,
+      idealEdgeLength: 165,
+      edgeElasticity: 75,
+      gravity: 0.35,
     },
   });
 
@@ -69,7 +78,22 @@ function createGraph(container, nodes, onNodeClick) {
     onNodeClick(event.target.data());
   });
 
+  spreadHorizontally(cy);
+
   return cy;
+}
+
+function spreadHorizontally(cy) {
+  cy.ready(() => {
+    cy.nodes().forEach((node) => {
+      const position = node.position();
+      node.position({
+        x: position.x * 1.75,
+        y: position.y * 0.65,
+      });
+    });
+    cy.fit(undefined, 28);
+  });
 }
 
 function getInitialPosition(index, total) {
@@ -77,7 +101,7 @@ function getInitialPosition(index, total) {
   const radius = 120;
 
   return {
-    x: Math.cos(angle) * radius,
-    y: Math.sin(angle) * radius,
+    x: Math.cos(angle) * radius * 1.8,
+    y: Math.sin(angle) * radius * 0.75,
   };
 }

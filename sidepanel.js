@@ -12,9 +12,9 @@ const graphList = document.querySelector("#graph-list");
 const emptyState = document.querySelector("#empty-state");
 const graphCount = document.querySelector("#graph-count");
 const detailTitle = document.querySelector("#detail-title");
-const detailStatus = document.querySelector("#detail-status");
 const updateGraphButton = document.querySelector("#update-graph-button");
 const graphVisual = document.querySelector("#graph-visual");
+const graphLoading = document.querySelector("#graph-loading");
 const chatMessages = document.querySelector("#chat-messages");
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
@@ -22,6 +22,7 @@ const chatInput = document.querySelector("#chat-input");
 let graphs = [];
 let graphView = null;
 const conversations = {};
+const pendingConversationSaves = new Map();
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const timeUnits = [
@@ -137,12 +138,33 @@ async function saveConversation(graphId) {
   localStorage.setItem(key, JSON.stringify(messages));
 
   if (typeof chrome !== "undefined" && chrome.storage?.local) {
-    await chrome.storage.local.set({ [key]: messages });
+    pendingConversationSaves.set(key, (pendingConversationSaves.get(key) ?? 0) + 1);
+
+    try {
+      await chrome.storage.local.set({ [key]: messages });
+    } catch (error) {
+      markConversationSaveObserved(key);
+      throw error;
+    }
   }
 }
 
 function getConversationKey(graphId) {
   return `${graphId}_conversation`;
+}
+
+function getCurrentGraphId() {
+  return decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+}
+
+function markConversationSaveObserved(key) {
+  const pendingCount = pendingConversationSaves.get(key) ?? 0;
+
+  if (pendingCount <= 1) {
+    pendingConversationSaves.delete(key);
+  } else {
+    pendingConversationSaves.set(key, pendingCount - 1);
+  }
 }
 
 async function saveGraphs() {
@@ -199,12 +221,12 @@ function showGraph(id) {
 }
 
 function getCurrentGraph() {
-  const id = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+  const id = getCurrentGraphId();
   return graphs.find((item) => item.id === id);
 }
 
 function renderRoute() {
-  const id = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+  const id = getCurrentGraphId();
   const graph = getCurrentGraph();
 
   homeView.hidden = Boolean(id);
@@ -215,9 +237,6 @@ function renderRoute() {
   }
 
   detailTitle.textContent = graph?.name ?? "Graph not found";
-  detailStatus.textContent = graph
-    ? Object.keys(graph.graph.nodes).length ? "Generated" : "Generating..."
-    : "";
   renderGraphVisual(graph?.graph.nodes ?? {});
   renderChat(id);
   updateUpdateButtonVisibility(graph);
@@ -244,10 +263,18 @@ async function updateUpdateButtonVisibility(graph) {
 function renderGraphVisual(nodes) {
   if (graphView) {
     graphView.destroy();
+    graphView = null;
   }
 
   graphVisual.replaceChildren();
-  graphView = createGraph(graphVisual, nodes, handleNodeClick);
+  const hasNodes = Object.keys(nodes).length > 0;
+
+  graphLoading.hidden = hasNodes;
+  graphVisual.append(graphLoading);
+
+  if (hasNodes) {
+    graphView = createGraph(graphVisual, nodes, handleNodeClick);
+  }
 }
 
 async function handleNodeClick(node) {
@@ -366,12 +393,11 @@ async function waitForTabLoad(tabId) {
 
 async function createNewGraph() {
   newGraphButton.disabled = true;
-  newGraphButton.textContent = "Generating...";
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   const graph = {
     id: crypto.randomUUID(),
-    name: "Generating graph...",
+    name: "New graph",
     last_modified: Date.now(),
     graph: { nodes: {} },
   };
@@ -387,15 +413,14 @@ async function createNewGraph() {
       tabId: tab?.id,
     });
   } catch (error) {
-    detailStatus.textContent = error.message;
+    console.error(error);
   } finally {
     newGraphButton.disabled = false;
-    newGraphButton.textContent = "New graph";
   }
 }
 
 async function updateCurrentGraph() {
-  const graphId = decodeURIComponent(location.hash.match(/^#graph=(.+)$/)?.[1] ?? "");
+  const graphId = getCurrentGraphId();
   const graph = graphs.find((item) => item.id === graphId);
 
   if (!graph) {
@@ -412,7 +437,7 @@ async function updateCurrentGraph() {
     graph.last_modified = Date.now();
     await saveGraphs();
   } catch (error) {
-    detailStatus.textContent = error.message;
+    console.error(error);
   } finally {
     updateGraphButton.disabled = false;
     updateGraphButton.textContent = "Update graph";
@@ -427,15 +452,33 @@ async function renderChat(graphId) {
     ...messages.map((message) => {
       const item = document.createElement("div");
       item.className = `chat-message ${message.role}${message.loading ? " loading" : ""}`;
-      renderChatMessageContent(item, message.content);
+
+      if (message.loading) {
+        renderChatLoadingContent(item, message.content);
+      } else {
+        renderChatMessageContent(item, message.content);
+      }
+
       return item;
     }),
   );
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+function renderChatLoadingContent(container, content) {
+  const spinner = document.createElement("span");
+  spinner.className = "chat-loading-spinner";
+  container.append(spinner);
+
+  if (String(content ?? "").trim()) {
+    const text = document.createElement("span");
+    text.textContent = content;
+    container.append(text);
+  }
+}
+
 function renderChatMessageContent(container, content) {
-  const lines = content.split(/\n+/);
+  const lines = String(content ?? "").split(/\n+/);
   let list = null;
 
   lines.forEach((line) => {
@@ -523,6 +566,7 @@ async function sendChatMessage(event) {
 
   const graph = getCurrentGraph();
   const content = chatInput.value.trim();
+  let loadingMessage = null;
 
   if (!graph || !content) {
     return;
@@ -530,18 +574,19 @@ async function sendChatMessage(event) {
 
   chatInput.value = "";
   setChatLoading(true);
-  conversations[graph.id] = [...(conversations[graph.id] ?? []), { role: "user", content }];
+  conversations[graph.id] = [...(await loadConversation(graph.id)), { role: "user", content }];
   await saveConversation(graph.id);
   await renderChat(graph.id);
 
   try {
     const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
-    const loadingMessage = createLoadingMessage("");
+    loadingMessage = createLoadingMessage("");
     conversations[graph.id].push(loadingMessage);
     await saveConversation(graph.id);
     await renderChat(graph.id);
 
     const response = await generateChatResponse(apiKey, page.text, graph, conversations[graph.id]);
+    loadingMessage = getCurrentLoadingMessage(graph.id, loadingMessage);
     loadingMessage.content = addUrlToQuoteLinks(response.text, page.url);
     loadingMessage.loading = false;
     await saveConversation(graph.id);
@@ -551,7 +596,15 @@ async function sendChatMessage(event) {
       await updateGraphFromChat(apiKey, page, graph, response.modify_graph);
     }
   } catch (error) {
-    conversations[graph.id].push({ role: "assistant", content: error.message });
+    if (loadingMessage) {
+      loadingMessage = getCurrentLoadingMessage(graph.id, loadingMessage);
+      loadingMessage.content = error.message;
+      loadingMessage.loading = false;
+    } else {
+      conversations[graph.id].push({ role: "assistant", content: error.message });
+    }
+
+    console.error(error);
     await saveConversation(graph.id);
     await renderChat(graph.id);
   } finally {
@@ -567,13 +620,14 @@ function setChatLoading(isLoading) {
 
 async function sendIntroMessage(apiKey, pageText, graph) {
   const loadingMessage = createLoadingMessage("");
-  conversations[graph.id] = [...(conversations[graph.id] ?? []), loadingMessage];
+  conversations[graph.id] = [...(await loadConversation(graph.id)), loadingMessage];
   await saveConversation(graph.id);
   await renderChat(graph.id);
 
   const intro = await generateIntroResponse(apiKey, pageText, graph);
-  loadingMessage.content = intro;
-  loadingMessage.loading = false;
+  const currentLoadingMessage = getCurrentLoadingMessage(graph.id, loadingMessage);
+  currentLoadingMessage.content = intro;
+  currentLoadingMessage.loading = false;
   await saveConversation(graph.id);
   await renderChat(graph.id);
 }
@@ -588,23 +642,38 @@ function createLoadingMessage(content) {
 
 async function updateGraphFromChat(apiKey, page, graph, modifyGraph) {
   const loadingMessage = createLoadingMessage("Updating graph");
+  conversations[graph.id] = await loadConversation(graph.id);
   conversations[graph.id].push(loadingMessage);
   await saveConversation(graph.id);
   await renderChat(graph.id);
 
-  const generatedGraph = await generateChatGraphUpdate(apiKey, page.text, graph, modifyGraph);
-  graph.graph = buildStoredGraph(generatedGraph, page.url, graph.graph.nodes);
-  graph.last_modified = Date.now();
-  await saveGraphs();
+  try {
+    const generatedGraph = await generateChatGraphUpdate(apiKey, page.text, graph, modifyGraph);
+    graph.graph = buildStoredGraph(generatedGraph, page.url, graph.graph.nodes);
+    graph.last_modified = Date.now();
+    await saveGraphs();
+    getCurrentLoadingMessage(graph.id, loadingMessage).content = "Graph updated.";
+  } catch (error) {
+    getCurrentLoadingMessage(graph.id, loadingMessage).content = error.message;
+    console.error(error);
+  } finally {
+    getCurrentLoadingMessage(graph.id, loadingMessage).loading = false;
+    await saveConversation(graph.id);
+    await renderChat(graph.id);
+  }
+}
 
-  loadingMessage.content = "Graph updated.";
-  loadingMessage.loading = false;
-  await saveConversation(graph.id);
-  await renderChat(graph.id);
+function getCurrentLoadingMessage(graphId, fallback) {
+  const messages = conversations[graphId] ?? [];
+
+  return messages.includes(fallback)
+    ? fallback
+    : [...messages].reverse().find((message) => message.role === "assistant" && message.loading) ??
+        fallback;
 }
 
 function addUrlToQuoteLinks(content, url) {
-  return content.replace(
+  return String(content ?? "").replace(
     /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
     (_match, text, quote) => `[${text}](${quote})(${url})`,
   );
@@ -982,15 +1051,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     return;
   }
 
+  if (changes[GRAPH_STORAGE_KEY]) {
+    loadGraphs();
+  }
+
   Object.keys(changes)
     .filter((key) => key.endsWith("_conversation"))
     .forEach((key) => {
-      delete conversations[key.replace(/_conversation$/, "")];
-    });
+      if (pendingConversationSaves.has(key)) {
+        markConversationSaveObserved(key);
+        return;
+      }
 
-  if (changes[GRAPH_STORAGE_KEY] || Object.keys(changes).some((key) => key.endsWith("_conversation"))) {
-    loadGraphs();
-  }
+      const graphId = key.replace(/_conversation$/, "");
+      delete conversations[graphId];
+
+      if (graphId === getCurrentGraphId()) {
+        renderChat(graphId);
+      }
+    });
 });
 
 loadGraphs();
