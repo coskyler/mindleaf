@@ -535,8 +535,7 @@ async function sendChatMessage(event) {
   }
 
   chatInput.value = "";
-  chatInput.disabled = true;
-  chatForm.querySelector("button").disabled = true;
+  setChatLoading(true);
   conversations[graph.id] = [...(conversations[graph.id] ?? []), { role: "user", content }];
   await saveConversation(graph.id);
   await renderChat(graph.id);
@@ -544,21 +543,49 @@ async function sendChatMessage(event) {
   try {
     const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
     const response = await generateChatResponse(apiKey, page.text, graph, conversations[graph.id]);
+    const assistantText = addUrlToQuoteLinks(response.text, page.url);
     conversations[graph.id].push({
       role: "assistant",
-      content: addUrlToQuoteLinks(response, page.url),
+      content: assistantText,
     });
     await saveConversation(graph.id);
     await renderChat(graph.id);
+
+    if (response.modify_graph.trim()) {
+      await updateGraphFromChat(apiKey, page, graph, response.modify_graph);
+    }
   } catch (error) {
     conversations[graph.id].push({ role: "assistant", content: error.message });
     await saveConversation(graph.id);
     await renderChat(graph.id);
   } finally {
-    chatInput.disabled = false;
-    chatForm.querySelector("button").disabled = false;
+    setChatLoading(false);
     chatInput.focus();
   }
+}
+
+function setChatLoading(isLoading) {
+  chatInput.disabled = isLoading;
+  chatForm.querySelector("button").disabled = isLoading;
+}
+
+async function updateGraphFromChat(apiKey, page, graph, modifyGraph) {
+  const loadingMessage = {
+    role: "assistant",
+    content: "Updating graph...",
+  };
+  conversations[graph.id].push(loadingMessage);
+  await saveConversation(graph.id);
+  await renderChat(graph.id);
+
+  const generatedGraph = await generateChatGraphUpdate(apiKey, page.text, graph, modifyGraph);
+  graph.graph = buildStoredGraph(generatedGraph, page.url, graph.graph.nodes);
+  graph.last_modified = Date.now();
+  await saveGraphs();
+
+  loadingMessage.content = "Graph updated.";
+  await saveConversation(graph.id);
+  await renderChat(graph.id);
 }
 
 function addUrlToQuoteLinks(content, url) {
@@ -749,6 +776,57 @@ async function generateUpdatedKnowledgeGraph(apiKey, pageText, graph) {
   return parseResponseJson(data);
 }
 
+async function generateChatGraphUpdate(apiKey, pageText, graph, modifyGraph) {
+  const systemPrompt = await loadPrompt("prompts/knowledge_graph_chat_update_system.txt");
+
+  const data = await createResponse(apiKey, {
+    model: GRAPH_MODEL,
+    input: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content:
+          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${pageText}\n\nModify graph request:\n${modifyGraph}`,
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "knowledge_graph_adjacency_list",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            nodes: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  name: { type: "string" },
+                  quote: { type: "string" },
+                  outgoing: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["name", "quote", "outgoing"],
+              },
+            },
+          },
+          required: ["nodes"],
+        },
+      },
+    },
+  });
+
+  return parseResponseJson(data);
+}
+
 async function generateChatResponse(apiKey, pageText, graph, messages) {
   const systemPrompt = await loadPrompt("prompts/conversation_system.txt");
   const recentMessages = messages.slice(-5);
@@ -766,9 +844,25 @@ async function generateChatResponse(apiKey, pageText, graph, messages) {
       },
       ...recentMessages,
     ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "conversation_response",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            text: { type: "string" },
+            modify_graph: { type: "string" },
+          },
+          required: ["text", "modify_graph"],
+        },
+      },
+    },
   });
 
-  return getResponseText(data);
+  return parseResponseJson(data);
 }
 
 async function createResponse(apiKey, body) {

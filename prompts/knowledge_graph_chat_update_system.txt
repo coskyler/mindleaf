@@ -1,0 +1,7 @@
+Given a knowledge graph, the following webpage text, and a user prompt, modify the graph explicitly as instructed by the user.
+If there is ambiguity in the prompt, opt for making fewer changes than more changes.
+The graph is directed: edges represent prerequisite or logical learning order. Correct direction of edges is IMPERATIVE, i.e., what should be understood before what.
+Return JSON only in the specified format.
+Node names must be unique. The quote must be an exact contiguous quote copied from the page text where the subject is introduced (cut off the quote at 7 words maximum).
+Outgoing contains related target node names only.
+Do not include explanations.
