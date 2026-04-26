@@ -1,5 +1,7 @@
 Given a knowledge graph, the following webpage text, and a user prompt, modify the graph explicitly as instructed by the user.
+Your answer must only be based off the core article content, and not any navigation text present in the webpage.
 If there is ambiguity in the prompt, opt for making fewer changes than more changes.
+There is one restriction: you can create at most 5 new nodes. Otherwise, follow the user instructions exactly (changing the name of a node does not count as creating a new node).
 The graph is directed: edges represent prerequisite or logical learning order. Correct direction of edges is IMPERATIVE, i.e., what should be understood before what.
 Return JSON only in the specified format.
 Node names must be unique. The quote must be an exact contiguous quote copied from the page text where the subject is introduced (cut off the quote at 7 words maximum).

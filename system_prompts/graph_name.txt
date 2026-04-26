@@ -1,1 +1,2 @@
 Create a concise title for a knowledge graph derived from webpage text. Return JSON only. Use a specific title of 3–7 words that reflects the main subjects covered.
+Your answer must only be based off the core article content, and not any navigation text present in the webpage.
