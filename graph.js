@@ -50,6 +50,13 @@ function createGraph(container, nodes, onNodeClick) {
         },
       },
       {
+        selector: "node:selected",
+        style: {
+          "border-width": 3,
+          "border-color": "#9ed7a4",
+        },
+      },
+      {
         selector: "edge",
         style: {
           width: 2,
@@ -94,6 +101,24 @@ function spreadHorizontally(cy) {
     });
     cy.fit(undefined, 28);
   });
+}
+
+function focusGraphNode(cy, nodeName) {
+  const node = cy?.getElementById(nodeName);
+
+  if (!node?.length) {
+    return;
+  }
+
+  cy.elements().unselect();
+  node.select();
+  cy.animate(
+    {
+      center: { eles: node },
+      zoom: Math.max(cy.zoom(), 1.15),
+    },
+    { duration: 220 },
+  );
 }
 
 function getInitialPosition(index, total) {

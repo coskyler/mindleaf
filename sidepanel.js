@@ -15,6 +15,7 @@ const detailTitle = document.querySelector("#detail-title");
 const updateGraphButton = document.querySelector("#update-graph-button");
 const graphVisual = document.querySelector("#graph-visual");
 const graphLoading = document.querySelector("#graph-loading");
+const lessonBar = document.querySelector("#lesson-bar");
 const chatMessages = document.querySelector("#chat-messages");
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
@@ -238,6 +239,7 @@ function renderRoute() {
 
   detailTitle.textContent = graph?.name ?? "Graph not found";
   renderGraphVisual(graph?.graph.nodes ?? {});
+  renderLessonBar(graph?.graph.nodes ?? {});
   renderChat(id);
   updateUpdateButtonVisibility(graph);
 }
@@ -275,6 +277,20 @@ function renderGraphVisual(nodes) {
   if (hasNodes) {
     graphView = createGraph(graphVisual, nodes, handleNodeClick);
   }
+}
+
+function renderLessonBar(nodes) {
+  lessonBar.hidden = !Object.keys(nodes).length;
+  createLessonBar(lessonBar, nodes, handleLessonClick);
+}
+
+async function handleLessonClick(name, node) {
+  if (!node) {
+    return;
+  }
+
+  focusGraphNode(graphView, name);
+  await handleNodeClick(node);
 }
 
 async function handleNodeClick(node) {
