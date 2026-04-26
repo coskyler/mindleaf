@@ -367,6 +367,7 @@ async function waitForTabLoad(tabId) {
 async function createNewGraph() {
   newGraphButton.disabled = true;
   newGraphButton.textContent = "Generating...";
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   const graph = {
     id: crypto.randomUUID(),
@@ -380,18 +381,11 @@ async function createNewGraph() {
   showGraph(graph.id);
 
   try {
-    const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
-
-    graph.name = await generateGraphName(apiKey, page.text);
-    graph.last_modified = Date.now();
-    await saveGraphs();
-
-    graph.graph = buildStoredGraph(
-      await generateKnowledgeGraph(apiKey, page.text),
-      page.url,
-    );
-    graph.last_modified = Date.now();
-    await saveGraphs();
+    await chrome.runtime.sendMessage({
+      type: "generateGraph",
+      graphId: graph.id,
+      tabId: tab?.id,
+    });
   } catch (error) {
     detailStatus.textContent = error.message;
   } finally {
@@ -432,7 +426,7 @@ async function renderChat(graphId) {
   chatMessages.replaceChildren(
     ...messages.map((message) => {
       const item = document.createElement("div");
-      item.className = `chat-message ${message.role}`;
+      item.className = `chat-message ${message.role}${message.loading ? " loading" : ""}`;
       renderChatMessageContent(item, message.content);
       return item;
     }),
@@ -542,12 +536,14 @@ async function sendChatMessage(event) {
 
   try {
     const [apiKey, page] = await Promise.all([loadApiKey(), getVisiblePage()]);
+    const loadingMessage = createLoadingMessage("");
+    conversations[graph.id].push(loadingMessage);
+    await saveConversation(graph.id);
+    await renderChat(graph.id);
+
     const response = await generateChatResponse(apiKey, page.text, graph, conversations[graph.id]);
-    const assistantText = addUrlToQuoteLinks(response.text, page.url);
-    conversations[graph.id].push({
-      role: "assistant",
-      content: assistantText,
-    });
+    loadingMessage.content = addUrlToQuoteLinks(response.text, page.url);
+    loadingMessage.loading = false;
     await saveConversation(graph.id);
     await renderChat(graph.id);
 
@@ -569,11 +565,29 @@ function setChatLoading(isLoading) {
   chatForm.querySelector("button").disabled = isLoading;
 }
 
-async function updateGraphFromChat(apiKey, page, graph, modifyGraph) {
-  const loadingMessage = {
+async function sendIntroMessage(apiKey, pageText, graph) {
+  const loadingMessage = createLoadingMessage("");
+  conversations[graph.id] = [...(conversations[graph.id] ?? []), loadingMessage];
+  await saveConversation(graph.id);
+  await renderChat(graph.id);
+
+  const intro = await generateIntroResponse(apiKey, pageText, graph);
+  loadingMessage.content = intro;
+  loadingMessage.loading = false;
+  await saveConversation(graph.id);
+  await renderChat(graph.id);
+}
+
+function createLoadingMessage(content) {
+  return {
     role: "assistant",
-    content: "Updating graph...",
+    content,
+    loading: true,
   };
+}
+
+async function updateGraphFromChat(apiKey, page, graph, modifyGraph) {
+  const loadingMessage = createLoadingMessage("Updating graph");
   conversations[graph.id].push(loadingMessage);
   await saveConversation(graph.id);
   await renderChat(graph.id);
@@ -584,6 +598,7 @@ async function updateGraphFromChat(apiKey, page, graph, modifyGraph) {
   await saveGraphs();
 
   loadingMessage.content = "Graph updated.";
+  loadingMessage.loading = false;
   await saveConversation(graph.id);
   await renderChat(graph.id);
 }
@@ -641,7 +656,7 @@ async function getVisiblePage() {
 }
 
 async function generateGraphName(apiKey, pageText) {
-  const systemPrompt = await loadPrompt("prompts/graph_name_system.txt");
+  const systemPrompt = await loadPrompt("system_prompts/graph_name.txt");
 
   const data = await createResponse(apiKey, {
     model: NAME_MODEL,
@@ -676,7 +691,7 @@ async function generateGraphName(apiKey, pageText) {
 }
 
 async function generateKnowledgeGraph(apiKey, pageText) {
-  const systemPrompt = await loadPrompt("prompts/knowledge_graph_system.txt");
+  const systemPrompt = await loadPrompt("system_prompts/knowledge_graph.txt");
 
   const data = await createResponse(apiKey, {
     model: GRAPH_MODEL,
@@ -726,7 +741,7 @@ async function generateKnowledgeGraph(apiKey, pageText) {
 }
 
 async function generateUpdatedKnowledgeGraph(apiKey, pageText, graph) {
-  const systemPrompt = await loadPrompt("prompts/knowledge_graph_update_system copy.txt");
+  const systemPrompt = await loadPrompt("system_prompts/knowledge_graph_update.txt");
 
   const data = await createResponse(apiKey, {
     model: GRAPH_MODEL,
@@ -777,7 +792,7 @@ async function generateUpdatedKnowledgeGraph(apiKey, pageText, graph) {
 }
 
 async function generateChatGraphUpdate(apiKey, pageText, graph, modifyGraph) {
-  const systemPrompt = await loadPrompt("prompts/knowledge_graph_chat_update_system.txt");
+  const systemPrompt = await loadPrompt("system_prompts/knowledge_graph_chat_update.txt");
 
   const data = await createResponse(apiKey, {
     model: GRAPH_MODEL,
@@ -827,9 +842,32 @@ async function generateChatGraphUpdate(apiKey, pageText, graph, modifyGraph) {
   return parseResponseJson(data);
 }
 
+async function generateIntroResponse(apiKey, pageText, graph) {
+  const systemPrompt = await loadPrompt("system_prompts/conversation_intro.txt");
+  const data = await createResponse(apiKey, {
+    model: CONVERSATION_MODEL,
+    input: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content:
+          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${pageText}`,
+      },
+    ],
+  });
+
+  return getResponseText(data);
+}
+
 async function generateChatResponse(apiKey, pageText, graph, messages) {
-  const systemPrompt = await loadPrompt("prompts/conversation_system.txt");
-  const recentMessages = messages.slice(-5);
+  const systemPrompt = await loadPrompt("system_prompts/conversation.txt");
+  const recentMessages = messages
+    .filter((message) => !message.loading)
+    .slice(-5)
+    .map(({ role, content }) => ({ role, content }));
   const data = await createResponse(apiKey, {
     model: CONVERSATION_MODEL,
     input: [
@@ -937,6 +975,21 @@ chrome.tabs.onActivated.addListener(refreshUpdateButtonVisibility);
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
   if (changeInfo.status === "complete" || changeInfo.url) {
     refreshUpdateButtonVisibility();
+  }
+});
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") {
+    return;
+  }
+
+  Object.keys(changes)
+    .filter((key) => key.endsWith("_conversation"))
+    .forEach((key) => {
+      delete conversations[key.replace(/_conversation$/, "")];
+    });
+
+  if (changes[GRAPH_STORAGE_KEY] || Object.keys(changes).some((key) => key.endsWith("_conversation"))) {
+    loadGraphs();
   }
 });
 

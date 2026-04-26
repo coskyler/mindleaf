@@ -1,10 +1,30 @@
 :root {
-  color-scheme: light;
-  font-family: "Aptos", "Segoe UI", sans-serif;
-  color: #203128;
+  color-scheme: dark;
+  font-family: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
+  color: #e1e9e2;
   background:
-    radial-gradient(circle at top left, rgba(158, 204, 154, 0.35), transparent 34rem),
-    linear-gradient(180deg, #f8faf4 0%, #eef4e9 100%);
+    radial-gradient(ellipse at 18% 10%, rgba(83, 128, 88, 0.16), transparent 34%),
+    radial-gradient(ellipse at 92% 22%, rgba(54, 94, 89, 0.12), transparent 32%),
+    radial-gradient(ellipse at 30% 100%, rgba(102, 78, 48, 0.08), transparent 38%),
+    linear-gradient(145deg, #030706 0%, #08100d 48%, #020504 100%);
+}
+
+:root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 0.5px, transparent 0.8px);
+  background-size: 7px 7px;
+  mix-blend-mode: soft-light;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -12,74 +32,113 @@ body {
   min-width: 320px;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(157, 213, 164, 0.34) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(157, 213, 164, 0.34);
+  background-clip: content-box;
+}
+
 .shell {
-  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
   box-sizing: border-box;
   padding: 18px;
+  overflow: hidden;
 }
 
 .header {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 h1 {
   margin: 0;
-  color: #52695b;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  color: #89b690;
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.new-graph-button,
+.update-graph-button,
+.back-button,
+.chat-send {
+  border: 1px solid rgba(128, 190, 136, 0.48);
+  color: #dff5e0;
+  background: rgba(12, 22, 18, 0.18);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.new-graph-button:hover,
+.update-graph-button:hover,
+.back-button:hover,
+.chat-send:hover {
+  border-color: rgba(174, 226, 177, 0.9);
+  background: rgba(92, 151, 96, 0.12);
+  transform: translateY(-1px);
 }
 
 .new-graph-button {
   width: 100%;
-  border: 0;
-  border-radius: 18px;
-  padding: 15px 18px;
-  color: #f9fff8;
-  background: linear-gradient(135deg, #2f6e4f, #6ca66b);
-  box-shadow: 0 14px 32px rgba(52, 104, 71, 0.2);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.98rem;
-  font-weight: 700;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.96rem;
 }
 
-.new-graph-button:disabled {
+.new-graph-button:disabled,
+.update-graph-button:disabled,
+.chat-send:disabled {
   cursor: wait;
-  opacity: 0.72;
+  opacity: 0.58;
 }
 
-.new-graph-button:focus-visible {
-  outline: 3px solid rgba(69, 127, 86, 0.28);
+.new-graph-button:focus-visible,
+.chat-input:focus-visible {
+  outline: 2px solid rgba(137, 182, 144, 0.42);
   outline-offset: 3px;
 }
 
 .update-graph-button {
-  border: 0;
-  border-radius: 14px;
-  padding: 11px 14px;
-  color: #f9fff8;
-  background: #3d7a55;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.update-graph-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
+  justify-self: end;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 0.72rem;
 }
 
 .graphs-section {
-  margin-top: 24px;
-  border: 1px solid rgba(86, 120, 92, 0.14);
-  border-radius: 24px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 18px 42px rgba(52, 74, 60, 0.08);
-  backdrop-filter: blur(14px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  margin-top: 26px;
+  min-height: 0;
+}
+
+.home-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .section-heading {
@@ -92,73 +151,90 @@ h1 {
 
 h2 {
   margin: 0;
-  color: #24382c;
-  font-size: 1rem;
-  font-weight: 750;
+  color: #edf6ec;
+  font-size: 0.98rem;
+  font-weight: 650;
 }
 
 .graph-count {
-  min-width: 24px;
+  min-width: 20px;
+  border: 1px solid rgba(147, 206, 154, 0.42);
   border-radius: 999px;
-  padding: 4px 8px;
-  color: #44604c;
-  background: #e3efdd;
-  font-size: 0.76rem;
-  font-weight: 700;
+  padding: 2px 7px;
+  color: #aad9ae;
+  background: rgba(10, 19, 15, 0.32);
+  font-size: 0.72rem;
+  font-weight: 650;
   text-align: center;
 }
 
 .graph-list {
   display: grid;
+  align-content: start;
   gap: 10px;
   margin: 0;
   padding: 0;
+  min-height: 0;
+  overflow-y: auto;
   list-style: none;
 }
 
 .graph-card {
   width: 100%;
-  border: 1px solid rgba(82, 105, 91, 0.1);
-  border-radius: 18px;
+  border: 1px solid rgba(150, 208, 157, 0.32);
+  border-radius: 12px;
   padding: 13px 14px;
-  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  background: rgba(11, 19, 16, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 44px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   font: inherit;
   text-align: left;
+  backdrop-filter: blur(18px);
   transition:
     border-color 160ms ease,
-    transform 160ms ease,
-    box-shadow 160ms ease;
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .graph-card:hover {
-  border-color: rgba(82, 126, 88, 0.24);
-  box-shadow: 0 12px 24px rgba(52, 74, 60, 0.08);
+  border-color: rgba(169, 228, 176, 0.62);
+  background: rgba(22, 36, 29, 0.58);
   transform: translateY(-1px);
 }
 
 .graph-name {
   margin: 0 0 5px;
-  color: #1f3328;
-  font-size: 0.96rem;
-  font-weight: 700;
+  color: #f1f7ef;
+  font-size: 0.94rem;
+  font-weight: 650;
 }
 
-.graph-time {
-  margin: 0;
-  color: #708073;
+.graph-time,
+.empty-state,
+.detail-status {
+  color: #87988b;
   font-size: 0.8rem;
 }
 
+.graph-time,
+.empty-state,
+.detail-status {
+  margin: 0;
+}
+
 .empty-state {
-  margin: 8px 0 2px;
-  color: #708073;
-  font-size: 0.9rem;
+  margin-top: 8px;
 }
 
 .detail-view {
   display: grid;
-  gap: 14px;
+  min-height: 0;
+  grid-template-rows: auto 280px minmax(0, 1fr);
+  gap: 13px;
+  overflow: hidden;
 }
 
 .detail-view[hidden],
@@ -168,42 +244,51 @@ h2 {
 
 .back-button {
   justify-self: start;
-  border: 1px solid rgba(82, 105, 91, 0.14);
   border-radius: 999px;
-  padding: 8px 12px;
-  color: #496354;
-  background: rgba(255, 255, 255, 0.62);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.84rem;
-  font-weight: 700;
+  padding: 7px 11px;
+  font-size: 0.8rem;
+}
+
+.detail-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-height: 0;
+}
+
+.detail-heading {
+  min-width: 0;
 }
 
 .detail-title {
-  font-size: 1.18rem;
+  margin: 0;
+  color: #f1f7ef;
+  font-size: 1.12rem;
+  font-weight: 620;
+  line-height: 1.18;
 }
 
-.detail-status {
-  margin: 0;
-  color: #708073;
-  font-size: 0.88rem;
+.graph-visual,
+.chat-panel {
+  border: 1px solid rgba(150, 208, 157, 0.34);
+  border-radius: 14px;
+  background: rgba(8, 15, 13, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 48px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+  backdrop-filter: blur(18px);
 }
 
 .graph-visual {
   height: 280px;
-  border: 1px solid rgba(82, 105, 91, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  overflow: hidden;
 }
 
 .chat-panel {
   display: grid;
-  grid-template-rows: minmax(180px, 1fr) auto;
-  min-height: 260px;
-  border: 1px solid rgba(82, 105, 91, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -211,16 +296,18 @@ h2 {
   display: grid;
   align-content: start;
   gap: 10px;
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px;
+  padding: 13px;
 }
 
 .chat-message {
-  max-width: 86%;
-  border-radius: 14px;
+  max-width: 88%;
+  border: 1px solid rgba(150, 208, 157, 0.24);
+  border-radius: 12px;
   padding: 9px 11px;
   font-size: 0.86rem;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .chat-message p {
@@ -242,57 +329,76 @@ h2 {
 
 .chat-message.user {
   justify-self: end;
-  color: #f9fff8;
-  background: #3d7a55;
+  color: #eaffea;
+  background: rgba(62, 121, 82, 0.26);
 }
 
 .chat-message.assistant {
   justify-self: start;
-  color: #24382c;
-  background: #eef4e9;
+  color: #dde8de;
+  background: rgba(16, 29, 23, 0.58);
+}
+
+.chat-message.loading::after {
+  content: "";
+  display: inline-block;
+  width: 1.4em;
+  animation: loading-dots 1.1s steps(4, end) infinite;
+}
+
+@keyframes loading-dots {
+  0% {
+    content: "";
+  }
+
+  25% {
+    content: ".";
+  }
+
+  50% {
+    content: "..";
+  }
+
+  75%,
+  100% {
+    content: "...";
+  }
 }
 
 .quote-link {
   border: 0;
   padding: 0;
-  color: #2f6e4f;
+  color: #9ed7a4;
   background: transparent;
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 650;
   text-decoration: underline;
 }
 
 .chat-form {
   display: flex;
   gap: 8px;
-  border-top: 1px solid rgba(82, 105, 91, 0.12);
+  border-top: 1px solid rgba(150, 208, 157, 0.26);
   padding: 10px;
 }
 
 .chat-input {
   min-width: 0;
   flex: 1;
-  border: 1px solid rgba(82, 105, 91, 0.14);
+  border: 1px solid rgba(150, 208, 157, 0.34);
   border-radius: 999px;
   padding: 10px 12px;
-  color: #203128;
-  background: rgba(255, 255, 255, 0.86);
+  color: #edf6ec;
+  background: rgba(4, 10, 8, 0.38);
   font: inherit;
+}
+
+.chat-input::placeholder {
+  color: #6f8174;
 }
 
 .chat-send {
-  border: 0;
   border-radius: 999px;
   padding: 10px 13px;
-  color: #f9fff8;
-  background: #3d7a55;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-}
-
-.chat-send:disabled {
-  cursor: wait;
-  opacity: 0.72;
 }
