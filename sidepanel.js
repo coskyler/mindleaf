@@ -22,6 +22,7 @@ const chatInput = document.querySelector("#chat-input");
 
 let graphs = [];
 let graphView = null;
+let lessonView = null;
 const conversations = {};
 const pendingConversationSaves = new Map();
 
@@ -281,7 +282,7 @@ function renderGraphVisual(nodes) {
 
 function renderLessonBar(nodes) {
   lessonBar.hidden = !Object.keys(nodes).length;
-  createLessonBar(lessonBar, nodes, handleLessonClick);
+  lessonView = createLessonBar(lessonBar, nodes, handleLessonClick);
 }
 
 function getLessonOrderByName(nodes) {
@@ -301,6 +302,9 @@ async function handleNodeClick(node) {
   if (!node.quote) {
     return;
   }
+
+  lessonView?.selectNode(node.id);
+  focusGraphNode(graphView, node.id);
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 

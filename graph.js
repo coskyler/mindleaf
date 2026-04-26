@@ -4,27 +4,31 @@ function createGraph(container, nodes, onNodeClick, orderByName = {}) {
     1,
     ...nodeEntries.map(([, node]) => node.outgoing.length),
   );
-  const elements = nodeEntries.flatMap(([name, node], index) => [
-    {
-      data: {
-        id: name,
-        label: name,
-        quote: node.quote,
-        url: node.url,
-        width: Math.min(220, Math.max(96, name.length * 9 + 28 + (node.outgoing.length / maxOutgoing) * 48)),
-        height: 34 + Math.ceil(name.length / 18) * 18 + (node.outgoing.length / maxOutgoing) * 20,
-        fontSize: 16 + (node.outgoing.length / maxOutgoing) * 5,
+  const elements = nodeEntries.flatMap(([name, node], index) => {
+    const outgoingWeight = Math.pow(node.outgoing.length / maxOutgoing, 0.7);
+
+    return [
+      {
+        data: {
+          id: name,
+          label: name,
+          quote: node.quote,
+          url: node.url,
+          width: Math.min(300, Math.max(104, name.length * 9 + 34 + outgoingWeight * 115)),
+          height: 38 + Math.ceil(name.length / 18) * 18 + outgoingWeight * 44,
+          fontSize: 16 + outgoingWeight * 11,
+        },
+        position: getInitialPosition(index, nodeEntries.length),
       },
-      position: getInitialPosition(index, nodeEntries.length),
-    },
-    ...node.outgoing.map((target) => ({
-      data: {
-        id: `${name}->${target}`,
-        source: name,
-        target,
-      },
-    })),
-  ]);
+      ...node.outgoing.map((target) => ({
+        data: {
+          id: `${name}->${target}`,
+          source: name,
+          target,
+        },
+      })),
+    ];
+  });
 
   const cy = cytoscape({
     container,

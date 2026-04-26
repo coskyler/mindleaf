@@ -18,7 +18,7 @@ function createLessonBar(container, nodes, onNodeSelect) {
   previousButton.hidden = true;
   nextButton.hidden = true;
 
-  function selectStep(index) {
+  function selectStep(index, shouldNotify = true) {
     if (!orderedNames[index]) {
       return;
     }
@@ -27,7 +27,10 @@ function createLessonBar(container, nodes, onNodeSelect) {
     activeIndex = index;
     updateWindow();
     renderSteps();
-    onNodeSelect(orderedNames[activeIndex], nodes[orderedNames[activeIndex]]);
+
+    if (shouldNotify) {
+      onNodeSelect(orderedNames[activeIndex], nodes[orderedNames[activeIndex]]);
+    }
   }
 
   function showLessonControls() {
@@ -101,6 +104,12 @@ function createLessonBar(container, nodes, onNodeSelect) {
   container._lessonCleanup = () => {
     document.removeEventListener("keydown", handleKeyDown);
     window.removeEventListener("resize", handleResize);
+  };
+
+  return {
+    selectNode(name) {
+      selectStep(orderedNames.indexOf(name), false);
+    },
   };
 }
 
