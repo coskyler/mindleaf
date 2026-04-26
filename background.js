@@ -36,7 +36,7 @@ async function generateGraphInBackground(graphId, tabId) {
     graph.last_modified = Date.now();
     await saveGraph(graph);
 
-    await sendIntroMessage(apiKey, page.text, graph);
+    await sendIntroMessage(apiKey, page, graph);
   } catch (error) {
     const graph = await getGraph(graphId);
 
@@ -156,7 +156,7 @@ async function generateKnowledgeGraph(apiKey, pageText) {
   return parseResponseJson(data);
 }
 
-async function sendIntroMessage(apiKey, pageText, graph) {
+async function sendIntroMessage(apiKey, page, graph) {
   const systemPrompt = await loadPrompt("system_prompts/conversation_intro.txt");
   const data = await createResponse(apiKey, {
     model: CONVERSATION_MODEL,
@@ -165,12 +165,20 @@ async function sendIntroMessage(apiKey, pageText, graph) {
       {
         role: "user",
         content:
-          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${pageText}`,
+          `Current graph JSON:\n${JSON.stringify(graph, null, 2)}\n\nVisible webpage text:\n${page.text}`,
       },
     ],
   });
 
-  await saveConversation(graph.id, [{ role: "assistant", content: getResponseText(data) }]);
+  const content = addUrlToQuoteLinks(getResponseText(data), page.url);
+  await saveConversation(graph.id, [{ role: "assistant", content }]);
+}
+
+function addUrlToQuoteLinks(content, url) {
+  return String(content ?? "").replace(
+    /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
+    (_match, text, quote) => `[${text}](${quote})(${url})`,
+  );
 }
 
 function knowledgeGraphFormat() {

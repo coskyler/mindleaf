@@ -1,4 +1,4 @@
-function createGraph(container, nodes, onNodeClick) {
+function createGraph(container, nodes, onNodeClick, orderByName = {}) {
   const nodeEntries = Object.entries(nodes).sort(([a], [b]) => a.localeCompare(b));
   const maxOutgoing = Math.max(
     1,

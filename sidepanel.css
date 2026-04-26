@@ -288,13 +288,24 @@ h2 {
 }
 
 .lesson-bar {
-  display: flex;
-  gap: 8px;
+  position: relative;
+  display: grid;
+  place-items: center;
   min-height: 34px;
   overflow-x: auto;
   padding: 2px 0;
 }
 
+.lesson-controls,
+.lesson-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lesson-start,
+.lesson-arrow,
 .lesson-step {
   width: 30px;
   height: 30px;
@@ -312,10 +323,34 @@ h2 {
     transform 160ms ease;
 }
 
+.lesson-start {
+  position: absolute;
+  left: 0;
+  width: auto;
+  padding: 0 11px;
+  border-radius: 999px;
+}
+
+.lesson-arrow {
+  border-radius: 999px;
+}
+
+.lesson-step.active {
+  border-color: rgba(174, 226, 177, 0.95);
+  color: #102719;
+  background: #dbeccd;
+}
+
+.lesson-start:hover,
+.lesson-arrow:hover,
 .lesson-step:hover {
   border-color: rgba(174, 226, 177, 0.9);
   background: rgba(92, 151, 96, 0.14);
   transform: translateY(-1px);
+}
+
+.lesson-step.active:hover {
+  background: #dbeccd;
 }
 
 .graph-loading {

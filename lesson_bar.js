@@ -1,17 +1,60 @@
 function createLessonBar(container, nodes, onNodeSelect) {
   const orderedNames = sortLessons(nodes);
+  let activeIndex = -1;
 
-  container.replaceChildren(
-    ...orderedNames.map((name, index) => {
-      const button = document.createElement("button");
-      button.className = "lesson-step";
-      button.type = "button";
-      button.textContent = index + 1;
-      button.title = name;
-      button.addEventListener("click", () => onNodeSelect(name, nodes[name]));
-      return button;
-    }),
+  const startButton = createLessonButton("Start", "lesson-start");
+  const previousButton = createLessonButton("<", "lesson-arrow");
+  const nextButton = createLessonButton(">", "lesson-arrow");
+  const steps = document.createElement("div");
+  const controls = document.createElement("div");
+
+  steps.className = "lesson-steps";
+  controls.className = "lesson-controls";
+  previousButton.hidden = true;
+  nextButton.hidden = true;
+
+  const stepButtons = orderedNames.map((name, index) => {
+    const button = createLessonButton(index + 1, "lesson-step");
+    button.title = name;
+    button.addEventListener("click", () => selectStep(index));
+    return button;
+  });
+
+  function selectStep(index) {
+    if (!orderedNames[index]) {
+      return;
+    }
+
+    activeIndex = index;
+    stepButtons.forEach((button, buttonIndex) => {
+      button.classList.toggle("active", buttonIndex === activeIndex);
+    });
+    onNodeSelect(orderedNames[activeIndex], nodes[orderedNames[activeIndex]]);
+  }
+
+  startButton.addEventListener("click", () => {
+    startButton.hidden = true;
+    previousButton.hidden = false;
+    nextButton.hidden = false;
+    selectStep(0);
+  });
+
+  previousButton.addEventListener("click", () => selectStep(Math.max(0, activeIndex - 1)));
+  nextButton.addEventListener("click", () =>
+    selectStep(Math.min(orderedNames.length - 1, activeIndex + 1)),
   );
+
+  steps.append(...stepButtons);
+  controls.append(previousButton, steps, nextButton);
+  container.replaceChildren(startButton, controls);
+}
+
+function createLessonButton(text, className) {
+  const button = document.createElement("button");
+  button.className = className;
+  button.type = "button";
+  button.textContent = text;
+  return button;
 }
 
 function sortLessons(nodes) {

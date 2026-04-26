@@ -275,13 +275,17 @@ function renderGraphVisual(nodes) {
   graphVisual.append(graphLoading);
 
   if (hasNodes) {
-    graphView = createGraph(graphVisual, nodes, handleNodeClick);
+    graphView = createGraph(graphVisual, nodes, handleNodeClick, getLessonOrderByName(nodes));
   }
 }
 
 function renderLessonBar(nodes) {
   lessonBar.hidden = !Object.keys(nodes).length;
   createLessonBar(lessonBar, nodes, handleLessonClick);
+}
+
+function getLessonOrderByName(nodes) {
+  return Object.fromEntries(sortLessons(nodes).map((name, index) => [name, index + 1]));
 }
 
 async function handleLessonClick(name, node) {
@@ -413,7 +417,7 @@ async function createNewGraph() {
 
   const graph = {
     id: crypto.randomUUID(),
-    name: "New graph",
+    name: "New branch",
     last_modified: Date.now(),
     graph: { nodes: {} },
   };
@@ -642,7 +646,7 @@ async function sendIntroMessage(apiKey, pageText, graph) {
 
   const intro = await generateIntroResponse(apiKey, pageText, graph);
   const currentLoadingMessage = getCurrentLoadingMessage(graph.id, loadingMessage);
-  currentLoadingMessage.content = intro;
+  currentLoadingMessage.content = addUrlToQuoteLinks(intro, getCurrentNodeUrl(graph));
   currentLoadingMessage.loading = false;
   await saveConversation(graph.id);
   await renderChat(graph.id);
@@ -693,6 +697,10 @@ function addUrlToQuoteLinks(content, url) {
     /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
     (_match, text, quote) => `[${text}](${quote})(${url})`,
   );
+}
+
+function getCurrentNodeUrl(graph) {
+  return Object.values(graph.graph.nodes).find((node) => node.url)?.url ?? "";
 }
 
 async function loadApiKey() {
