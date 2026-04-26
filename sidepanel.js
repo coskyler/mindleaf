@@ -530,12 +530,13 @@ function renderChatMessageContent(container, content) {
 }
 
 function renderInlineContent(container, content) {
-  const linkPattern = /\[([^\]]+)\]\(([^)]+)\)\(([^)]+)\)/g;
+  const normalizedContent = String(content ?? "");
+  const linkPattern = /\[([^\]]+)\]::quote::([\s\S]*?)::url::([^:]+:\/\/[\s\S]*?)::end::/g;
   let index = 0;
-  let match = linkPattern.exec(content);
+  let match = linkPattern.exec(normalizedContent);
 
   while (match) {
-    container.append(document.createTextNode(content.slice(index, match.index)));
+    container.append(document.createTextNode(normalizedContent.slice(index, match.index)));
 
     const quote = match[2];
     const url = match[3];
@@ -547,10 +548,10 @@ function renderInlineContent(container, content) {
     container.append(link);
 
     index = linkPattern.lastIndex;
-    match = linkPattern.exec(content);
+    match = linkPattern.exec(normalizedContent);
   }
 
-  container.append(document.createTextNode(content.slice(index)));
+  container.append(document.createTextNode(normalizedContent.slice(index)));
   formatInlineMarkdown(container);
 }
 
@@ -694,8 +695,8 @@ function getCurrentLoadingMessage(graphId, fallback) {
 
 function addUrlToQuoteLinks(content, url) {
   return String(content ?? "").replace(
-    /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
-    (_match, text, quote) => `[${text}](${quote})(${url})`,
+    /\[([^\]]+)\]::quote::([\s\S]*?)::end::/g,
+    (_match, text, quote) => `[${text}]::quote::${quote}::url::${url}::end::`,
   );
 }
 

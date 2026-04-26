@@ -2,7 +2,7 @@ function createLessonBar(container, nodes, onNodeSelect) {
   const orderedNames = sortLessons(nodes);
   let activeIndex = -1;
 
-  const startButton = createLessonButton("Start", "lesson-start");
+  const startButton = createLessonButton("Start lesson", "lesson-start");
   const previousButton = createLessonButton("<", "lesson-arrow");
   const nextButton = createLessonButton(">", "lesson-arrow");
   const steps = document.createElement("div");
@@ -25,6 +25,7 @@ function createLessonBar(container, nodes, onNodeSelect) {
       return;
     }
 
+    showLessonControls();
     activeIndex = index;
     stepButtons.forEach((button, buttonIndex) => {
       button.classList.toggle("active", buttonIndex === activeIndex);
@@ -32,10 +33,13 @@ function createLessonBar(container, nodes, onNodeSelect) {
     onNodeSelect(orderedNames[activeIndex], nodes[orderedNames[activeIndex]]);
   }
 
-  startButton.addEventListener("click", () => {
+  function showLessonControls() {
     startButton.hidden = true;
     previousButton.hidden = false;
     nextButton.hidden = false;
+  }
+
+  startButton.addEventListener("click", () => {
     selectStep(0);
   });
 

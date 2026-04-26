@@ -176,8 +176,8 @@ async function sendIntroMessage(apiKey, page, graph) {
 
 function addUrlToQuoteLinks(content, url) {
   return String(content ?? "").replace(
-    /\[([^\]]+)\]\(([^)]+)\)(?!\()/g,
-    (_match, text, quote) => `[${text}](${quote})(${url})`,
+    /\[([^\]]+)\]::quote::([\s\S]*?)::end::/g,
+    (_match, text, quote) => `[${text}]::quote::${quote}::url::${url}::end::`,
   );
 }
 
