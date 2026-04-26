@@ -1,4 +1,5 @@
-Given a knowledge graph and the following webpage text, create nodes based on the core, main, and study-relevant concepts only (ignore niche subtopics and focus on the core learning outcomes).
+Given a knowledge graph and the following webpage text, create nodes based on the core, main, and study-relevant concepts only.
+If the webpage cotains many subjects, focus on the few core subjects (5 new nodes max).
 Do not remove any nodes or edges from the existing graph. You must only create nodes from the new subjects and add new edges where it makes sense.
 If the webpage does not introduce new subjects, simply return the existing knowledge graph.
 The graph is directed: edges represent prerequisite or logical learning order. Correct direction of edges is IMPERATIVE, i.e., what should be understood before what.
