@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Mindleaf Side Panel",
-  "description": "Minimal Chrome extension blueprint using the Side Panel API.",
+  "name": "mindleaf",
+  "description": "Minimal Chrome extension help you organize your thoughts.",
   "version": "0.1.0",
   "permissions": ["activeTab", "scripting", "sidePanel", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_title": "Open Mindleaf"
+    "default_title": "Open Mindleaf",
+    "default_icon": {
+      "128": "mindleaf_icon.png"
+    }
+  },
+  "icons": {
+    "128": "mindleaf_icon.png"
   },
   "background": {
     "service_worker": "background.js"
