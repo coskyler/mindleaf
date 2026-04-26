@@ -32,6 +32,10 @@ body {
   min-width: 320px;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(157, 213, 164, 0.34) transparent;
@@ -292,11 +296,16 @@ h2 {
   display: grid;
   place-items: center;
   min-height: 34px;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 2px 0;
 }
 
-.lesson-controls,
+.lesson-controls {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
 .lesson-steps {
   display: flex;
   align-items: center;
@@ -326,13 +335,27 @@ h2 {
 .lesson-start {
   position: absolute;
   left: 0;
-  width: auto;
-  padding: 0 11px;
-  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #123321;
+  background: #dbeccd;
+  border-color: rgba(174, 226, 177, 0.95);
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 .lesson-arrow {
+  position: absolute;
   border-radius: 999px;
+}
+
+.lesson-arrow:first-child {
+  left: 0;
+}
+
+.lesson-arrow:last-child {
+  right: 0;
 }
 
 .lesson-step.active {
@@ -347,6 +370,10 @@ h2 {
   border-color: rgba(174, 226, 177, 0.9);
   background: rgba(92, 151, 96, 0.14);
   transform: translateY(-1px);
+}
+
+.lesson-start:hover {
+  background: #dbeccd;
 }
 
 .lesson-step.active:hover {
