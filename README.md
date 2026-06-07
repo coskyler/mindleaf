@@ -1,83 +1,57 @@
 # MindLeaf
 
-The modern web is non-linear, but learning is sequential. MindLeaf turns any webpage into a guided learning path.
+MindLeaf is a Chrome extension that turns a set of webpages into a single AI-generated directed graph of concepts.
 
-It uses AI to build a knowledge graph and guide you step by step through key concepts in the right order, linking directly to where each topic appears. It doesn’t just read pages; it understands the relationships between them.
+Each node represents a concept found across the selected pages, and each directed edge represents a learning dependency between concepts. Traversing the graph gives the user a structured learning path through the material in the order the concepts are best understood.
 
 ## What It Does
 
-MindLeaf is a Chrome side panel extension that transforms the active webpage into an interactive learning experience.
+MindLeaf transforms scattered web content into a guided learning experience.
 
-- Builds an AI-generated knowledge graph from the visible text on the current page.
-- Displays concepts as connected graph nodes using Cytoscape.js.
-- Creates a sequential lesson path from the graph using topological sorting.
-- Lets users click graph nodes or lesson steps to jump directly to the matching quote on the webpage.
-- Highlights the relevant sentence on the page so the user always stays grounded in the source.
-- Includes Leafy, an AI chatbot that answers questions using the current webpage and graph.
-- Lets the chatbot modify the graph when the user asks for learning-path changes.
-- Stores graphs and conversations locally in browser storage.
+* Extracts visible text from selected webpages.
+* Uses AI to generate a directed concept graph from the page content.
+* Represents each concept as a graph node with a source quote and URL.
+* Uses graph traversal to create an ordered learning path.
+* Lets users click graph nodes or lesson steps to jump directly to the matching quote on the source webpage.
+* Highlights the relevant sentence so each concept stays grounded in the original source.
+* Includes Leafy, an AI chatbot that answers questions using the current graph and source content.
+* Allows Leafy to update the graph when the user asks for changes to the learning path.
+* Stores graphs and conversations locally in browser storage.
 
 ## Why It Matters
 
-Most webpages are designed for browsing, not learning. Articles, docs, papers, and tutorials often contain many interconnected ideas, but users still have to decide what to read first, what matters, and how ideas connect.
+Webpages are usually written for browsing, not structured learning. Articles, documentation, papers, and tutorials often assume background knowledge or introduce related ideas out of order.
 
-MindLeaf turns that messy reading experience into a structured path. The graph shows how concepts relate, while the lesson bar gives users a clear next step.
+MindLeaf converts that non-linear content into a dependency graph. Instead of manually deciding what to read first, users can follow a generated path that introduces concepts in a more logical sequence.
 
-## How We Built It
+## Tech Stack
 
-MindLeaf is a Manifest V3 Chrome extension built around Chrome's Side Panel API.
+* Chrome Side Panel, Scripting, Tabs, and Storage APIs
+* OpenAI Responses API
+* Cytoscape.js
+* Vanilla JavaScript, HTML, and CSS
 
-The side panel is the main interface. It contains the graph view, lesson bar, and chatbot. The extension reads visible text from the active tab with `chrome.scripting.executeScript`, sends that page text to OpenAI, and stores generated graphs in `chrome.storage.local`.
+## How It Works
 
-The graph generation flow uses two AI calls:
+MindLeaf collects text from the selected webpages and sends it to ChatGPT's API. The model is prompted to identify the important concepts and return them as an adjacency list.
 
-- A lightweight model generates a concise graph title.
-- A reasoning model generates the knowledge graph from the webpage text.
-
-The generated graph is stored as an adjacency list:
+Each node contains a concept, a supporting quote, the source URL, and outgoing edges to related concepts.
 
 ```json
 {
   "nodes": {
     "Concept name": {
-      "quote": "exact quote from the page",
+      "quote": "exact quote from the source page",
       "url": "https://example.com/page",
-      "outgoing": ["Related concept"]
+      "outgoing": ["Dependent concept"]
     }
   }
 }
 ```
 
-Cytoscape.js renders the graph as a directed concept map. Nodes with more outgoing edges are larger and use larger text, making more foundational concepts visually stand out.
+The extension renders this adjacency list as a directed graph using Cytoscape.js. The graph is also used to generate a sequential lesson path, allowing users to move through the concepts in learning order.
 
-The lesson bar uses a Kahn-style topological sort to order concepts into a guided sequence. It dynamically adjusts how many steps are visible based on the side panel width, always keeping an odd number of visible steps so the selected lesson can stay centered when possible.
-
-The chatbot uses a separate conversation prompt and receives:
-
-- The current graph.
-- The visible webpage text.
-- The previous five conversation messages.
-
-When Leafy cites the page, it outputs quote links in a custom delimiter format. The extension injects the current URL afterward, then renders those links as clickable controls that focus the correct tab, scroll to the quote, and highlight it through the end of the sentence.
-
-Long-running graph generation is handled in the background service worker. This keeps graph creation and the initial Leafy message reliable even if the side panel is closed before generation finishes.
-
-## Challenge We Ran Into
-
-The hardest part was syncing the chatbot, the graph, and the webpage so they all worked together as one interface.
-
-A graph node click, lesson step click, and chatbot citation click all need to agree on the same source quote and URL. If the target page is already open, MindLeaf switches to that tab. If it is not open, it opens the URL, waits for the page to load, then highlights and scrolls to the quote.
-
-We also had to handle background generation safely. Early versions could lose graph updates or leave the chatbot stuck in a loading state if the side panel closed or browser storage updated while a request was still running. We solved this by moving graph creation into the background worker and carefully syncing local conversation state with `chrome.storage.local`.
-
-## Tech Stack
-
-- Chrome Extension Manifest V3
-- Chrome Side Panel API
-- Chrome Scripting, Tabs, and Storage APIs
-- OpenAI Responses API
-- Cytoscape.js
-- Vanilla JavaScript, HTML, and CSS
+When a user clicks a graph node, lesson step, or chatbot citation, MindLeaf opens the matching source page, scrolls to the quote, and highlights the relevant sentence.
 
 ## Local Setup
 
@@ -93,12 +67,11 @@ We also had to handle background generation safely. Early versions could lose gr
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
 5. Select this project folder.
-6. Open a webpage and click the MindLeaf extension icon.
+6. Open webpages and launch MindLeaf from the extension icon.
 
-## What’s Next
+## Future Improvements
 
-- Export and share learning graphs.
-- Add progress tracking across pages.
-- Support multi-page learning paths.
-- Let users manually edit graph nodes and relationships.
-- Add quiz generation from the lesson path.
+* Export and share learning graphs.
+* Add progress tracking across learning paths.
+* Improve graph editing controls.
+* Add quiz generation from the lesson path.
